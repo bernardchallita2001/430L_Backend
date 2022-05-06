@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import desc
 from flask_cors import CORS
 from flask_marshmallow import Marshmallow
 from flask_bcrypt import Bcrypt
@@ -180,6 +181,44 @@ def get_funds():
         except Exception:
             abort(403)
 
+#api that returns json with 2 fields: x coordinates(dates of rates) y: avg rate up to the corresponding date FOR SELLING USD TO LBP
+@app.route('/getgraphsell',methods=['GET'])
+def get_rate_graph_buy():
+    #get all transactions where we sell usd sorted by date added
+    transactions=Transaction.query.filter_by(usd_to_lbp=True)
+    count = 0
+
+    rates=[]
+    dates=[]
+    cumu=0
+    for trans in transactions:
+        count+=1
+        cumu+=trans.lbp_amount/trans.usd_amount
+        avg=cumu/count
+        rates.append(round(avg,3))
+        dates.append(trans.added_date)
+    data = {"x":dates,"y":rates}
+    return jsonify(data)
+
+
+#api that returns json with 2 fields: x coordinates(dates of rates) y: avg rate up to the corresponding date FOR SELLING USD TO LBP
+@app.route('/getgraphbuy',methods=['GET'])
+def get_rate_graph_sell():
+    #get all transactions where we sell usd sorted by date added
+    transactions=Transaction.query.filter_by(usd_to_lbp=False)
+    count = 0
+
+    rates=[]
+    dates=[]
+    cumu=0
+    for trans in transactions:
+        count+=1
+        cumu+=trans.lbp_amount/trans.usd_amount
+        avg=cumu/count
+        rates.append(round(avg,3))
+        dates.append(trans.added_date)
+    data = {"x":dates,"y":rates}
+    return jsonify(data)
 
 transaction_schema = TransactionSchema()
 transaction_schemaL = TransactionSchema(many=True)
