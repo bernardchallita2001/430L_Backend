@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import desc
+from sqlalchemy import desc,asc
 from flask_cors import CORS
 from flask_marshmallow import Marshmallow
 from flask_bcrypt import Bcrypt
@@ -159,7 +159,18 @@ def addPost():
 
 @app.route('/getPosts', methods=['GET'])
 def getPosts():
-    pass
+    posts = Post.query.order_by(asc(Post.added_date)).all()
+    postsArr = []
+    data = {}
+    for post in posts:
+        user = User.query.filter_by(id=post.user_id).first()
+        dataPost = {"userid":post.user_id,"username":user.user_name,
+        "usd_amount":post.usd_amount,"lbp_amount":post.lbp_amount,
+        "type":post.typeSell,"added_date":post.added_date
+        }
+        postsArr.append(dataPost)
+    data = {"posts":postsArr}   
+    return jsonify(postsArr)
 
 #api to get user funds excepts token
 #returns json {"USD":amount,"LBP":amount}
@@ -240,6 +251,9 @@ def extract_auth_token(authenticated_request):
 def decode_token(token):
     payload = jwt.decode(token, SECRET_KEY, 'HS256')
     return payload['sub']
+
+
+
 
 
 
