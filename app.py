@@ -8,7 +8,7 @@ import jwt
 import datetime
 
 
-DB_CONFIG=DBCONFIG='mysql+pymysql://root:root@127.0.0.1:5000/exchange'
+DB_CONFIG='mysql+pymysql://root:rootroot@127.0.0.1:3306/exchange'
 
 SECRET_KEY = "b'|\xe7\xbfU3`\xc4\xec\xa7\xa9zf:}\xb5\xc7\xb9\x139^3@Dv'"
 
@@ -22,13 +22,9 @@ db = SQLAlchemy(app)
 
 from .model.user import User, UserSchema
 from .model.transaction import Transaction, TransactionSchema
-
 from .model.post import Post,PostSchema
-post_schema=PostSchema()
-#db.create_all()
-@app.route('/hello', methods=['GET'])
-def hello_world():
-    return "Hello World!"
+
+db.create_all()
 
 @app.route('/transaction', methods=['POST'])
 def addTransaction():
@@ -105,7 +101,7 @@ def addUser():
     return jsonify(user_schema.dump(usr))
 
 
-@app.route('/authentication')
+@app.route('/authentication', methods=['POST'])
 def getAuth():
     username = request.json["user_name"]
     password = request.json["password"]
@@ -122,13 +118,13 @@ def getAuth():
     tkn = create_token(query.id)
 
     return jsonify(token=tkn)
+
 #api to add funds to user wallet. Needs: token,funds to add :['USD' or 'LBP'] and amount to add
 @app.route('/addfunds',methods=['POST'])
 def add_funds():
     tkn = extract_auth_token(request)
     if (tkn == None):
         abort(403)
-
     else:
         try:
             userid = decode_token(tkn)
@@ -143,6 +139,7 @@ def add_funds():
             return jsonify(user_schema.dump(user))
         except Exception:
             abort(403)
+
 @app.route('/post', methods=['POST'])
 def addPost():
     tkn = extract_auth_token(request)
@@ -171,12 +168,10 @@ def get_funds():
     tkn = extract_auth_token(request)
     if (tkn == None):
         abort(403)
-
     else:
         try:
             userid = decode_token(tkn)
             user = User.query.filter_by(id=userid).first()
-
             return jsonify({"USD":user.usdAmount,"LBP":user.lbpAmount})
         except Exception:
             abort(403)
@@ -187,7 +182,6 @@ def get_rate_graph_buy():
     #get all transactions where we sell usd sorted by date added
     transactions=Transaction.query.filter_by(usd_to_lbp=True)
     count = 0
-
     rates=[]
     dates=[]
     cumu=0
@@ -207,7 +201,6 @@ def get_rate_graph_sell():
     #get all transactions where we sell usd sorted by date added
     transactions=Transaction.query.filter_by(usd_to_lbp=False)
     count = 0
-
     rates=[]
     dates=[]
     cumu=0
@@ -222,8 +215,8 @@ def get_rate_graph_sell():
 
 transaction_schema = TransactionSchema()
 transaction_schemaL = TransactionSchema(many=True)
-
 user_schema = UserSchema()
+post_schema=PostSchema()
 
 
 def create_token(user_id):
