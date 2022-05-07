@@ -7,7 +7,7 @@ from flask_bcrypt import Bcrypt
 import jwt
 import datetime
 
-DB_CONFIG = 'mysql+pymysql://root:bernard@127.0.0.1:3307/430pro'
+DB_CONFIG = 'mysql+pymysql://root:rootroot@127.0.0.1:3306/exchange'
 
 SECRET_KEY = "b'|\xe7\xbfU3`\xc4\xec\xa7\xa9zf:}\xb5\xc7\xb9\x139^3@Dv'"
 
@@ -22,8 +22,15 @@ db = SQLAlchemy(app)
 from .model.user import User, UserSchema
 from .model.transaction import Transaction, TransactionSchema
 from .model.post import Post, PostSchema
+from .model.functions import *
 
-db.create_all()
+transaction_schema = TransactionSchema()
+transaction_schemaL = TransactionSchema(many=True)
+user_schema = UserSchema()
+post_schema = PostSchema()
+
+
+#db.create_all()
 
 
 @app.route('/transaction', methods=['POST'])
@@ -197,20 +204,20 @@ def get_funds():
 # api that returns json with 2 fields: x coordinates(dates of rates) y: avg rate up to the corresponding date FOR SELLING USD TO LBP
 @app.route('/getgraphsell', methods=['GET'])
 def graph_sell():
-    return jsonify(get_rate_graph_sell())
+    return jsonify(get_rate_graph(True))
 
 
 # api that returns json with 2 fields: x coordinates(dates of rates) y: avg rate up to the corresponding date FOR SELLING USD TO LBP
 @app.route('/getgraphbuy', methods=['GET'])
 def graph_buy():
-    return jsonify(get_rate_graph_buy())
+    return jsonify(get_rate_graph(False))
 
 
 # api to get statistics about rate changes of buying usd
 # change in last 24 hours/
 @app.route('/getstatbuy', methods=['GET'])
 def get_stats_buy():
-    data = get_rate_graph_buy()
+    data = get_rate_graph(False)
 
     dates = data['x']  # easier to start from last rate since we need to go backwards
     rates = data['y']
@@ -220,65 +227,10 @@ def get_stats_buy():
     stats = {}  # returned dictionary
     # first get current time when the api is called, since we need to compare rates from the time the api was called
     # we need to give the changes in, for example, the last 12 hours FROM THE TIME THE API HAS BEEN CALLED
-    curr_time = datetime.datetime.now()  # time when api was called
-
-    curr_rate = rates[0]  # get current rate when the api was called, it is the rate calculated from the last tranaction
-
-    # change in last hour
-    date1h = curr_time - datetime.timedelta(hours=1)
-
-    for i in range(len(dates)):
-        if dates[i] <= date1h:  # we found the first rate that was calculated for earlier than one hour from api call time
-            if (i==0):#here that means that no change was made one hour from that api call since the dates are now sorted in decreasing order
-                stats["1h"]=0
-                break
-            else:
-
-                change1 = ((curr_rate-rates[i]) / rates[i]) * 100  # in %
-                stats["1h"] = round(change1, 2)
-                break
-        if i == len(dates) - 1:  # this means that all transactions of this type were calculated later than  1hour  before the time the api was called
-            # in this case, calculate change between most recent and oldest rate
-            change1 = ((curr_rate-rates[i]) / rates[i]) * 100  # in %
-            stats["1h"] = round(change1, 2)
-            break
-
-
-    #change in last 12 hours
-    date12h = curr_time - datetime.timedelta(hours=12)
-
-    for i in range(len(dates)):
-        if dates[i] <= date12h:
-            if (i == 0):
-                stats["12h"] = 0
-                break
-            else:
-
-                change1 = ((curr_rate-rates[i]) / rates[i]) * 100  # in %
-                stats["12h"] = round(change1, 2)
-                break
-        if i == len(dates) - 1:
-            change1 = ((curr_rate-rates[i]) / rates[i]) * 100  # in %
-            stats["12h"] = round(change1, 2)
-            break
-
-    # change in last 24 hours
-    date24h = curr_time - datetime.timedelta(hours=24)
-
-    for i in range(len(dates)):
-        if dates[i] <= date24h:
-            if (i == 0):
-                stats["24h"] = 0
-                break
-            else:
-
-                change1 = ((curr_rate-rates[i]) / rates[i]) * 100  # in %
-                stats["24h"] = round(change1, 2)
-                break
-        if i == len(dates) - 1:
-            change1 = ((curr_rate-rates[i]) / rates[i]) * 100  # in %
-            stats["24h"] = round(change1, 2)
-            break
+    
+    stats.update(getStatsDate(dates,rates,1))
+    stats.update(getStatsDate(dates,rates,12))
+    stats.update(getStatsDate(dates,rates,24))
     stats["max"]=max(rates) #max rate ever
     stats["min"]=min(rates) #min rate ever
     return jsonify(stats)
@@ -287,7 +239,7 @@ def get_stats_buy():
 # api to get statistics about rate changes of selling usd
 @app.route('/getstatsell', methods=['GET'])
 def get_stats_sell():
-    data = get_rate_graph_sell()
+    data = get_rate_graph(True)
 
     dates = data['x']  # easier to start from last rate since we need to go backwards
     rates = data['y']
@@ -297,133 +249,16 @@ def get_stats_sell():
     stats = {}  # returned dictionary
     # first get current time when the api is called, since we need to compare rates from the time the api was called
     # we need to give the changes in, for example, the last 12 hours FROM THE TIME THE API HAS BEEN CALLED
-    curr_time = datetime.datetime.now()  # time when api was called
-
-    curr_rate = rates[0]  # get current rate when the api was called, it is the rate calculated from the last tranaction
-    print(curr_rate)
-    # change in last hour
-    date1h = curr_time - datetime.timedelta(hours=1)
-
-    for i in range(len(dates)):
-        if dates[
-            i] <= date1h:  # we found the first rate that was calculated for earlier than one hour from api call time
-            if (
-                    i == 0):  # here that means that no change was made one hour from that api call since the dates are now sorted in decreasing order
-                stats["1h"] = 0
-                break
-            else:
-
-                change1 = ((curr_rate-rates[i]) / rates[i]) * 100  # in %
-                stats["1h"] = round(change1, 2)
-                break
-        if i == len(
-                dates) - 1:  # this means that all transactions of this type were calculated later than  1hour  before the time the api was called
-            # in this case, calculate change between most recent and oldest rate
-            change1 = ((curr_rate-rates[i]) / rates[i]) * 100  # in %
-            stats["1h"] = round(change1, 2)
-            break
-
-    # change in last 12 hours
-    date12h = curr_time - datetime.timedelta(hours=12)
-
-    for i in range(len(dates)):
-        if dates[i] <= date12h:
-            if (i == 0):
-                stats["12h"] = 0
-                break
-            else:
-
-                change1 = ((curr_rate-rates[i]) / rates[i]) * 100  # in %
-                stats["12h"] = round(change1, 2)
-                break
-        if i == len(dates) - 1:
-            change1 = ((curr_rate-rates[i]) / rates[i]) * 100  # in %
-            stats["12h"] = round(change1, 2)
-            break
-
-    # change in last 24 hours
-    date24h = curr_time - datetime.timedelta(hours=24)
-
-    for i in range(len(dates)):
-        if dates[i] <= date24h:
-            if (i == 0):
-                stats["24h"] = 0
-                break
-            else:
-
-                change1 = ((curr_rate-rates[i]) / rates[i]) * 100  # in %
-                stats["24h"] = round(change1, 2)
-                break
-        if i == len(dates) - 1:
-            change1 = ((curr_rate-rates[i]) / rates[i]) * 100  # in %
-            stats["24h"] = round(change1, 2)
-            break
-    stats["max"] = max(rates)  # max rate ever
-    stats["min"] = min(rates)  # min rate ever
+    stats.update(getStatsDate(dates,rates,1))
+    stats.update(getStatsDate(dates,rates,12))
+    stats.update(getStatsDate(dates,rates,24))
+    stats["max"]=max(rates) #max rate ever
+    stats["min"]=min(rates) #min rate ever
     return jsonify(stats)
 
-transaction_schema = TransactionSchema()
-transaction_schemaL = TransactionSchema(many=True)
-user_schema = UserSchema()
-post_schema = PostSchema()
 
 
-def create_token(user_id):
-    payload = {
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=4),
-        'iat': datetime.datetime.utcnow(),
-        'sub': user_id
-    }
-    return jwt.encode(
-        payload,
-        SECRET_KEY,
-        algorithm='HS256'
-    )
 
 
-def extract_auth_token(authenticated_request):
-    auth_header = authenticated_request.headers.get('Authorization')
-    if auth_header:
-        return auth_header.split(" ")[1]
-    else:
-        return None
 
 
-def decode_token(token):
-    payload = jwt.decode(token, SECRET_KEY, 'HS256')
-    return payload['sub']
-
-
-def get_rate_graph_sell():
-    # get all transactions where we sell usd sorted by date added
-    transactions = Transaction.query.filter_by(usd_to_lbp=False)
-    count = 0  # to know how many transactions have been stored
-    rates = []  # array of avg rates up until matching date at same index in date array
-    dates = []  # array of dates
-    cumu = 0  # to store cumulative sum of avg rates up until a date
-    for trans in transactions:
-        count += 1
-        cumu += trans.lbp_amount / trans.usd_amount
-        avg = cumu / count
-        rates.append(round(avg, 3))
-        dates.append(trans.added_date)
-    data = {"x": dates, "y": rates}
-    return data
-
-
-def get_rate_graph_buy():
-    # get all transactions where we sell usd sorted by date added
-    transactions = Transaction.query.filter_by(usd_to_lbp=True)
-    count = 0
-    rates = []
-    dates = []
-    cumu = 0
-    for trans in transactions:
-        count += 1
-        cumu += trans.lbp_amount / trans.usd_amount
-        avg = cumu / count
-        rates.append(round(avg, 3))
-        dates.append(trans.added_date)
-    data = {"x": dates, "y": rates}
-
-    return data
