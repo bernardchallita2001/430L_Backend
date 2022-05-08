@@ -223,14 +223,13 @@ def get_stats_buy():
     rates = data['y']
     dates.reverse()
     rates.reverse()
-
     stats = {}  # returned dictionary
     # first get current time when the api is called, since we need to compare rates from the time the api was called
     # we need to give the changes in, for example, the last 12 hours FROM THE TIME THE API HAS BEEN CALLED
-    
     stats.update(getStatsDate(dates,rates,1))
     stats.update(getStatsDate(dates,rates,12))
     stats.update(getStatsDate(dates,rates,24))
+    stats.update(getStatsDate(dates,rates,168))
     stats["max"]=max(rates) #max rate ever
     stats["min"]=min(rates) #min rate ever
     return jsonify(stats)
@@ -240,18 +239,17 @@ def get_stats_buy():
 @app.route('/getstatsell', methods=['GET'])
 def get_stats_sell():
     data = get_rate_graph(True)
-
     dates = data['x']  # easier to start from last rate since we need to go backwards
     rates = data['y']
     dates.reverse()
     rates.reverse()
-
     stats = {}  # returned dictionary
     # first get current time when the api is called, since we need to compare rates from the time the api was called
     # we need to give the changes in, for example, the last 12 hours FROM THE TIME THE API HAS BEEN CALLED
     stats.update(getStatsDate(dates,rates,1))
     stats.update(getStatsDate(dates,rates,12))
     stats.update(getStatsDate(dates,rates,24))
+    stats.update(getStatsDate(dates,rates,168))
     stats["max"]=max(rates) #max rate ever
     stats["min"]=min(rates) #min rate ever
     return jsonify(stats)
