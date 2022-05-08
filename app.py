@@ -254,6 +254,83 @@ def get_stats_sell():
     stats["min"]=min(rates) #min rate ever
     return jsonify(stats)
 
+# api that returns json with 3 fields: x coordinates(dates of rates) y1/y2: avg rate up to the corresponding date FOR SELLING/buying USD TO LBP
+@app.route('/getgraph', methods=['GET'])
+def graph():
+    B= Transaction.query.filter_by(usd_to_lbp=False)
+    S= Transaction.query.filter_by(usd_to_lbp=True)
+    dsell = []
+    rsell = []
+    dbuy = []
+    rbuy = []
+
+    for i in B:
+        dbuy.append(i.added_date)
+        rbuy.append(i.lbp_amount/i.usd_amount)
+    for i in S:
+        dsell.append(i.added_date)
+        rsell.append(i.lbp_amount/i.usd_amount)
+
+    #get min date
+    if dsell[0]<=dbuy[0]:
+        startd=dsell[0]
+    else:
+        startd=dbuy[0]
+    #get max date
+    if dsell[len(dsell)-1]>=dbuy[len(dbuy)-1]:
+        endd=dsell[len(dsell)-1]
+    else:
+        endd=dbuy[len(dbuy)-1]
+
+
+    daycount= (endd-startd).days+1 #hom many days to consider
+    start=datetime.datetime(year=startd.year,month=startd.month,day=startd.day)
+
+    dates=[]
+    buy=[]
+    sell=[]
+    di=0
+    si=0
+    cumuS=0
+    cumuB=0
+    countS=0
+    countB=0
+    for i in range(daycount+1):
+        currdate=start+datetime.timedelta(days=1)
+        dates.append(str(start.day)+'-'+str(start.strftime("%B")))
+
+        while di<len(dbuy) and dbuy[di]<currdate:
+                cumuB+=rbuy[di]
+                countB+=1
+                di+=1
+        if(countB==0):
+            if(len(buy)==0):
+                buy.append(0)
+            else:
+                buy.append(buy[len(buy)-1])
+        else:
+            buy.append(round(cumuB/countB,3)/1000)
+     
+        while si<len(dsell) and dsell[si]<currdate:
+                cumuS+=rsell[si]
+                countS+=1
+                si+=1
+        if(countS==0):
+            if(len(sell)==0):
+                sell.append(0)
+            else:
+                sell.append(sell[len(sell)-1])
+        else:
+            sell.append(round(cumuS/countS,3)/1000)
+        start=start+datetime.timedelta(days=1)
+    data={}
+    data["x"]=dates
+    data["buy"]=buy
+    data["sell"]=sell
+
+
+    return jsonify(data)
+
 
 
 
