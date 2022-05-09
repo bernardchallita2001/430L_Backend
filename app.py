@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import desc, asc
+from sqlalchemy import desc, asc, delete
 from flask_cors import CORS
 from flask_marshmallow import Marshmallow
 from flask_bcrypt import Bcrypt
 import jwt
 import datetime
 
-DB_CONFIG = 'mysql+pymysql://root:rootroot@127.0.0.1:3306/exchange'
+DB_CONFIG = 'mysql+pymysql://root:root@127.0.0.1:5000/exchange'
 
 SECRET_KEY = "b'|\xe7\xbfU3`\xc4\xec\xa7\xa9zf:}\xb5\xc7\xb9\x139^3@Dv'"
 
@@ -30,7 +30,7 @@ user_schema = UserSchema()
 post_schema = PostSchema()
 
 
-#db.create_all()
+# db.create_all()
 
 
 @app.route('/transaction', methods=['POST'])
@@ -169,18 +169,28 @@ def addPost():
             abort(403)
 
 
+# api to delete post once completed
+@app.route('/acceptPost', methods=['POST'])
+def acceptPost():
+    postid = request.json['postid']
+    Post.query.filter(Post.id == postid).delete()
+    db.session.commit()
+
+    return "Success"
+
+
 @app.route('/getPosts', methods=['GET'])
 def getPosts():
     tkn = extract_auth_token(request)
     useridCurr = decode_token(tkn)
     if (tkn == None):
         return
-    posts = Post.query.filter(Post.user_id!=useridCurr).order_by(asc(Post.added_date)).all()
+    posts = Post.query.filter(Post.user_id != useridCurr).order_by(asc(Post.added_date)).all()
     postsArr = []
     data = {}
     for post in posts:
         user = User.query.filter_by(id=post.user_id).first()
-        dataPost = {"id":post.id,"user_id": post.user_id, "username": user.user_name,
+        dataPost = {"id": post.id, "user_id": post.user_id, "username": user.user_name,
                     "usd_amount": post.usd_amount, "lbp_amount": post.lbp_amount,
                     "typeSell": post.typeSell, "added_date": post.added_date
                     }
@@ -229,12 +239,12 @@ def get_stats_buy():
     stats = {}  # returned dictionary
     # first get current time when the api is called, since we need to compare rates from the time the api was called
     # we need to give the changes in, for example, the last 12 hours FROM THE TIME THE API HAS BEEN CALLED
-    stats.update(getStatsDate(dates,rates,1))
-    stats.update(getStatsDate(dates,rates,12))
-    stats.update(getStatsDate(dates,rates,24))
-    stats.update(getStatsDate(dates,rates,168))
-    stats["max"]=max(rates) #max rate ever
-    stats["min"]=min(rates) #min rate ever
+    stats.update(getStatsDate(dates, rates, 1))
+    stats.update(getStatsDate(dates, rates, 12))
+    stats.update(getStatsDate(dates, rates, 24))
+    stats.update(getStatsDate(dates, rates, 168))
+    stats["max"] = max(rates)  # max rate ever
+    stats["min"] = min(rates)  # min rate ever
     return jsonify(stats)
 
 
@@ -249,19 +259,20 @@ def get_stats_sell():
     stats = {}  # returned dictionary
     # first get current time when the api is called, since we need to compare rates from the time the api was called
     # we need to give the changes in, for example, the last 12 hours FROM THE TIME THE API HAS BEEN CALLED
-    stats.update(getStatsDate(dates,rates,1))
-    stats.update(getStatsDate(dates,rates,12))
-    stats.update(getStatsDate(dates,rates,24))
-    stats.update(getStatsDate(dates,rates,168))
-    stats["max"]=max(rates) #max rate ever
-    stats["min"]=min(rates) #min rate ever
+    stats.update(getStatsDate(dates, rates, 1))
+    stats.update(getStatsDate(dates, rates, 12))
+    stats.update(getStatsDate(dates, rates, 24))
+    stats.update(getStatsDate(dates, rates, 168))
+    stats["max"] = max(rates)  # max rate ever
+    stats["min"] = min(rates)  # min rate ever
     return jsonify(stats)
+
 
 # api that returns json with 3 fields: x coordinates(dates of rates) y1/y2: avg rate up to the corresponding date FOR SELLING/buying USD TO LBP
 @app.route('/getgraph', methods=['GET'])
 def graph():
-    B= Transaction.query.filter_by(usd_to_lbp=False)
-    S= Transaction.query.filter_by(usd_to_lbp=True)
+    B = Transaction.query.filter_by(usd_to_lbp=False)
+    S = Transaction.query.filter_by(usd_to_lbp=True)
     dsell = []
     rsell = []
     dbuy = []
@@ -269,74 +280,65 @@ def graph():
 
     for i in B:
         dbuy.append(i.added_date)
-        rbuy.append(i.lbp_amount/i.usd_amount)
+        rbuy.append(i.lbp_amount / i.usd_amount)
     for i in S:
         dsell.append(i.added_date)
-        rsell.append(i.lbp_amount/i.usd_amount)
+        rsell.append(i.lbp_amount / i.usd_amount)
 
-    #get min date
-    if dsell[0]<=dbuy[0]:
-        startd=dsell[0]
+    # get min date
+    if dsell[0] <= dbuy[0]:
+        startd = dsell[0]
     else:
-        startd=dbuy[0]
-    #get max date
-    if dsell[len(dsell)-1]>=dbuy[len(dbuy)-1]:
-        endd=dsell[len(dsell)-1]
+        startd = dbuy[0]
+    # get max date
+    if dsell[len(dsell) - 1] >= dbuy[len(dbuy) - 1]:
+        endd = dsell[len(dsell) - 1]
     else:
-        endd=dbuy[len(dbuy)-1]
+        endd = dbuy[len(dbuy) - 1]
 
+    daycount = (endd - startd).days + 1  # hom many days to consider
+    start = datetime.datetime(year=startd.year, month=startd.month, day=startd.day)
 
-    daycount= (endd-startd).days+1 #hom many days to consider
-    start=datetime.datetime(year=startd.year,month=startd.month,day=startd.day)
+    dates = []
+    buy = []
+    sell = []
+    di = 0
+    si = 0
+    cumuS = 0
+    cumuB = 0
+    countS = 0
+    countB = 0
+    for i in range(daycount + 1):
+        currdate = start + datetime.timedelta(days=1)
+        dates.append(str(start.day) + '-' + str(start.strftime("%B")))
 
-    dates=[]
-    buy=[]
-    sell=[]
-    di=0
-    si=0
-    cumuS=0
-    cumuB=0
-    countS=0
-    countB=0
-    for i in range(daycount+1):
-        currdate=start+datetime.timedelta(days=1)
-        dates.append(str(start.day)+'-'+str(start.strftime("%B")))
-
-        while di<len(dbuy) and dbuy[di]<currdate:
-                cumuB+=rbuy[di]
-                countB+=1
-                di+=1
-        if(countB==0):
-            if(len(buy)==0):
+        while di < len(dbuy) and dbuy[di] < currdate:
+            cumuB += rbuy[di]
+            countB += 1
+            di += 1
+        if (countB == 0):
+            if (len(buy) == 0):
                 buy.append(0)
             else:
-                buy.append(buy[len(buy)-1])
+                buy.append(buy[len(buy) - 1])
         else:
-            buy.append(round(cumuB/countB,3)/1000)
-     
-        while si<len(dsell) and dsell[si]<currdate:
-                cumuS+=rsell[si]
-                countS+=1
-                si+=1
-        if(countS==0):
-            if(len(sell)==0):
+            buy.append(round(cumuB / countB, 3) / 1000)
+
+        while si < len(dsell) and dsell[si] < currdate:
+            cumuS += rsell[si]
+            countS += 1
+            si += 1
+        if (countS == 0):
+            if (len(sell) == 0):
                 sell.append(0)
             else:
-                sell.append(sell[len(sell)-1])
+                sell.append(sell[len(sell) - 1])
         else:
-            sell.append(round(cumuS/countS,3)/1000)
-        start=start+datetime.timedelta(days=1)
-    data={}
-    data["x"]=dates
-    data["buy"]=buy
-    data["sell"]=sell
-
+            sell.append(round(cumuS / countS, 3) / 1000)
+        start = start + datetime.timedelta(days=1)
+    data = {}
+    data["x"] = dates
+    data["buy"] = buy
+    data["sell"] = sell
 
     return jsonify(data)
-
-
-
-
-
-
-
