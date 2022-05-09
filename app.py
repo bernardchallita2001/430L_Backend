@@ -7,7 +7,7 @@ from flask_bcrypt import Bcrypt
 import jwt
 import datetime
 
-DB_CONFIG = 'mysql+pymysql://root:root@127.0.0.1:5000/exchange'
+DB_CONFIG = 'mysql+pymysql://root:rootroot@127.0.0.1:3306/exchange'
 
 SECRET_KEY = "b'|\xe7\xbfU3`\xc4\xec\xa7\xa9zf:}\xb5\xc7\xb9\x139^3@Dv'"
 
@@ -129,27 +129,6 @@ def getAuth():
     return jsonify(token=tkn)
 
 
-# api to add funds to user wallet. Needs: token,funds to add :['USD' or 'LBP'] and amount to add
-@app.route('/addfunds', methods=['POST'])
-def add_funds():
-    tkn = extract_auth_token(request)
-    if (tkn == None):
-        abort(403)
-    else:
-        try:
-            userid = decode_token(tkn)
-            user = User.query.filter_by(id=userid).first()
-            type = request.json['type']
-            amount = request.json['amount']
-            if type == 'USD':
-                user.usdAmount += amount
-            else:
-                user.lbpAmount += amount
-            db.session.commit()
-            return jsonify(user_schema.dump(user))
-        except Exception:
-            abort(403)
-
 
 @app.route('/post', methods=['POST'])
 def addPost():
@@ -176,7 +155,18 @@ def acceptPost():
     Post.query.filter(Post.id == postid).delete()
     db.session.commit()
 
-    return "Success"
+    tkn = extract_auth_token(request)
+    r1 = request.json["usd_amount"]
+    r2 = request.json["lbp_amount"]
+    r3 = request.json["typeSell"]
+    try:
+        txn = Transaction(r1, r2, r3, decode_token(tkn))
+        db.session.add(txn)
+        db.session.commit()
+        return jsonify(transaction_schema.dump(txn))
+    except Exception:
+        abort(403)
+
 
 
 @app.route('/getPosts', methods=['GET'])
