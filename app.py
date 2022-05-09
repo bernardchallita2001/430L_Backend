@@ -171,7 +171,11 @@ def addPost():
 
 @app.route('/getPosts', methods=['GET'])
 def getPosts():
-    posts = Post.query.order_by(asc(Post.added_date)).all()
+    tkn = extract_auth_token(request)
+    useridCurr = decode_token(tkn)
+    if (tkn == None):
+        return
+    posts = Post.query.filter(Post.user_id!=useridCurr).order_by(asc(Post.added_date)).all()
     postsArr = []
     data = {}
     for post in posts:
