@@ -176,12 +176,11 @@ def getPosts():
     data = {}
     for post in posts:
         user = User.query.filter_by(id=post.user_id).first()
-        dataPost = {"userid": post.user_id, "username": user.user_name,
+        dataPost = {"id":post.id,"user_id": post.user_id, "username": user.user_name,
                     "usd_amount": post.usd_amount, "lbp_amount": post.lbp_amount,
-                    "type": post.typeSell, "added_date": post.added_date
+                    "typeSell": post.typeSell, "added_date": post.added_date
                     }
         postsArr.append(dataPost)
-    data = {"posts": postsArr}
     return jsonify(postsArr)
 
 
