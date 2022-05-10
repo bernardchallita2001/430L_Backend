@@ -151,14 +151,15 @@ def addPost():
 # api to delete post once completed
 @app.route('/acceptPost', methods=['POST'])
 def acceptPost():
-    postid = request.json['postid']
-    Post.query.filter(Post.id == postid).delete()
-    db.session.commit()
-
+    postid = request.json["postid"]
+    post = Post.query.filter_by(id = postid).first()
+    if post is None:
+        return
     tkn = extract_auth_token(request)
-    r1 = request.json["usd_amount"]
-    r2 = request.json["lbp_amount"]
-    r3 = request.json["typeSell"]
+    r1 = post.usd_amount
+    r2 = post.lbp_amount
+    r3 = post.typeSell
+    Post.query.filter(Post.id == postid).delete()
     try:
         txn = Transaction(r1, r2, r3, decode_token(tkn))
         db.session.add(txn)
