@@ -188,32 +188,8 @@ def getPosts():
     return jsonify(postsArr)
 
 
-# api to get user funds excepts token
-# returns json {"USD":amount,"LBP":amount}
-@app.route('/getfunds', methods=['GET'])
-def get_funds():
-    tkn = extract_auth_token(request)
-    if (tkn == None):
-        abort(403)
-    else:
-        try:
-            userid = decode_token(tkn)
-            user = User.query.filter_by(id=userid).first()
-            return jsonify({"USD": user.usdAmount, "LBP": user.lbpAmount})
-        except Exception:
-            abort(403)
 
 
-# api that returns json with 2 fields: x coordinates(dates of rates) y: avg rate up to the corresponding date FOR SELLING USD TO LBP
-@app.route('/getgraphsell', methods=['GET'])
-def graph_sell():
-    return jsonify(get_rate_graph(True))
-
-
-# api that returns json with 2 fields: x coordinates(dates of rates) y: avg rate up to the corresponding date FOR SELLING USD TO LBP
-@app.route('/getgraphbuy', methods=['GET'])
-def graph_buy():
-    return jsonify(get_rate_graph(False))
 
 
 # api to get statistics about rate changes of buying usd
