@@ -1,0 +1,392 @@
+openapi: 3.0.3
+info:
+  title: 'Rate Exchange'
+  description: 'An application for users to post transactions they made, get current exchange rates and post custom transactions'
+  version: '1.0'
+servers:
+  - url: http://localhost:5000/
+
+components:
+    schemas:
+      User:
+          # definition of a User
+          type: object
+          required: [user_name,hashed_password]
+      
+          properties:
+            id:
+              type: integer
+              example: 1
+            user_name:
+              type: string
+              example: 'bernard'
+            hashed_password:
+              type: string
+              example: '1234123#$##$%^#$&'
+              
+      Transaction:
+      
+          type: object
+          required: [usd_amount,lbp_amount,usd_to_lbp,user_id]
+          properties:
+            id: 
+              type: integer
+            usd_amount:
+              type: number
+            lbp_amount:
+              type: number
+            usd_to_lbp:
+              type: boolean
+            added_date:
+              type: string
+            user_id:
+              type: integer
+      Post:
+          type: object
+          required: [user_id,usd_amount,lbp_amount,typeSell]
+          properties:
+            id:
+              type: integer
+            user_id:
+              type: integer
+            usd_amount:
+              type: number
+            lbp_amount:
+              type: number
+            typeSell: 
+              type: boolean
+            added_date:
+              type: string
+              
+paths:
+  /user:
+    post:
+      description: 'Add new user to DB'
+      requestBody:
+        description: Optional description in *Markdown*
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_name:
+                  type: string
+                  description: the user name
+                  example: bernard
+                password: 
+                  type: string
+                  description: the password
+                  example: bernard
+        
+
+      responses:
+        '200':
+          description: 'returns the added user'
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/User'
+  
+  /autenthication:
+    post:
+      description: 'authenticates the user and returns token'
+      requestBody:
+        description: Optional description in *Markdown*
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_name:
+                  type: string
+                  description: the user name
+                  example: bernard
+                password: 
+                  type: string
+                  description: the password
+                  example: bernard
+      responses:
+        '200':
+          description: 'returns a json file with the user token'
+          content:
+            application/json:
+               schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: The token.
+                    example: "@#$%!#$%1234Wertfbds"
+        '400':
+          description: empty fields
+        '403':
+          description:  not such user or invalid password
+              
+  /transaction:
+    post:
+      description: Adds a transaction to the DB
+      parameters:
+        - in: header
+          name: authorization
+          required: true
+          schema: 
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                usd_amount:
+                  type: number
+                  description: usd amount
+                  example: 100
+                lbp_amount: 
+                  type: number
+                  description: lbp amount
+                  example: 100000    
+                usd_to_lbp: 
+                  type: boolean
+                  description: the type of transaction
+                  example: True 
+      responses:
+        '200':
+          description: 'returns a json file with the transaction'
+          content:
+            application/json:
+               schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          description: invalid token
+    get:
+      description: returns all transactions a user has done
+      parameters:
+        - in: header
+          name: authorization
+          required: true
+          schema: 
+            type: string
+      responses:
+        '200':
+          description: 'returns a json file with the transaction'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '403':
+          description: invalid token
+  /exchangeRate:
+    get:
+      description: Returns json with buy/sell usd rates
+      responses:
+        '200':
+          description: 'returns a json file with the user token'
+          content:
+            application/json:
+               schema:
+                type: object
+                properties:
+                  usd_to_lbp:
+                    type: number
+                    description: usd to lbp rate
+                    example: 10000
+                  lbp_to_usd:
+                    type: number
+                    description: lbp to usd rate
+                    example: 15000
+  /post:
+    post:
+      description: add post to db, needs info about the post + token
+      parameters:
+        - in: header
+          name: authorization
+          required: true
+          schema: 
+            type: string
+      requestBody:
+        description: Optional description in *Markdown*
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                usd_amount:
+                  type: number
+                  description: the usd amount
+                  example: 100
+                lbp_amount: 
+                  type: number
+                  description: the lbp amount
+                  example: 100000    
+                usd_to_lbp: 
+                  type: boolean
+                  description: the type of transaction
+                  example: True 
+      responses:
+        '200':
+          description: returns the added post
+          content:
+              application/json:
+                schema:
+                   $ref: '#/components/schemas/Post'
+        '403':
+          description: invalid token
+  
+  
+  /acceptPost:
+    post:
+      description: deletes post from db, and adds it as a transaction, requires post id and user token
+      parameters:
+        - in: header
+          name: authorization
+          required: true
+          schema: 
+            type: string
+      requestBody:
+        description: Optional description in *Markdown*
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                postid:
+                  type: integer
+                  description: the post id
+                  example: 100
+      responses:
+        '200':
+          description: returns the deleted post as a transaction
+          content:
+              application/json:
+                schema:
+                   $ref: '#/components/schemas/Transaction'
+        '403':
+          description: invalid token
+  /getPosts:
+    get:
+      description: returns all added posts except the posts added by the user itself, requires user token
+      parameters:
+        - in: header
+          name: authorization
+          required: true
+          schema: 
+            type: string
+      responses:
+        '200':
+          description: array of posts + username
+          content:
+            application/json:
+                schema:
+                  type: array
+                  items:  
+                    $ref: '#/components/schemas/Post'
+  /getgraph:
+    get:
+      description: returns necessary informations to plot graph describing change in rates over time
+      responses:
+        '200':
+          description: json of array x being the dates, buy being the different rates of buying usd on different             dates, and same fir the array sell
+          content:
+            application/json:
+               schema:
+                type: object
+                properties:
+                  x:
+                    type: array
+                    items: 
+                      type: string
+                    description: dates
+                    example: ['date1','date2']
+                  buy:
+                    type: array
+                    items: 
+                      type: number
+                    description: buying usd rates
+                    example: [10000,11000]
+                  y:
+                    type: array
+                    items: 
+                      type: number
+                    description: selling usd rates
+                    example: [9000,11000]
+  /getstatbuy:
+    get:
+      description: returns json with insights about buy rate change over time
+      responses:
+        '200':
+          description: returns json with fields-value pairs corresponding to change in rates for buying usd
+          content:
+            application/json:
+               schema:
+                type: object
+                properties:
+                  1h:
+                    type: number
+                  12h:
+                    type: number
+                  24h: 
+                    type: number
+                  7d:
+                    type: number
+                  max:
+                    type: number
+                  min:
+                    type: number
+  /getstatsell:
+    get:
+      description: returns json with insights about sell rate change over time
+      responses:
+        '200':
+          description: returns json with fields-value pairs corresponding to change in rates for selling usd
+          content:
+            application/json:
+               schema:
+                type: object
+                properties:
+                  1h:
+                    type: number
+                  12h:
+                    type: number
+                  24h: 
+                    type: number
+                  7d:
+                    type: number
+                  max:
+                    type: number
+                  min:
+                    type: number
+                    
+                    
+                  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
