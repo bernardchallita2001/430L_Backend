@@ -26,3 +26,4 @@ We have documentend our APIs as well as our models using the open api specificat
 In order to view them, go to: https://editor.swagger.io/ , Import the yaml file into the editor, and you will be able to see the full documentation of the apis as well as the models adopted
 ## Architecture
 You can see a simple diagram representing the Architecture we adopted for our Backend
+![alt text](https://github.com/bernardchallita2001/430L_backend/blob/main/diagram.PNG?raw=true)
